@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paris 2026: 巴黎深度食光規劃</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:italic,wght@400;700&family=Noto+Serif+TC:wght@400;500&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root { 
+            --linen: #F9F7F2; --stone: #4A4A4A; --moss: #6B705C; --gold: #B89166; --dust: #A5A5A5; 
+        }
+        body { background-color: var(--linen); font-family: 'Inter', 'Noto Serif TC', serif; color: var(--stone); }
+        h1, h2, h3 { font-family: 'Playfair Display', 'Noto Serif TC', serif; }
+        
+        #map { height: 580px; border-radius: 24px; border: 1px solid #E0DCD0; z-index: 1; }
+        
+        .sticky-header { 
+            position: sticky; top: 0; background-color: rgba(249, 247, 242, 0.95); 
+            backdrop-filter: blur(8px); z-index: 20; border-bottom: 1px solid #E0DCD0;
+        }
+
+        .drag-zone { min-height: 55px; border: 1px dashed #D1CFC7; border-radius: 12px; margin-top: 6px; background: rgba(255,255,255,0.4); transition: 0.3s; }
+        .drag-zone:hover { border-color: var(--moss); background: white; }
+        
+        .item-card { cursor: grab; background: white; border-radius: 12px; border: 1px solid #EAE8E0; margin-bottom: 10px; position: relative; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .item-card:hover { border-color: var(--gold); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        
+        .delete-btn { position: absolute; top: 8px; right: 8px; color: var(--dust); font-size: 14px; display: none; cursor: pointer; z-index: 30; }
+        .in-planner .delete-btn { display: block; }
+        .in-planner .delete-btn:hover { color: #8B0000; }
+        
+        .tag-date { font-size: 9px; padding: 1px 6px; border-radius: 4px; background: #EEECE6; color: #777; margin-bottom: 4px; display: inline-block; }
+        .tag-book { background-color: #F3E9D2; color: #8C704B; font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        
+        details > summary { list-style: none; outline: none; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #E0DCD0; border-radius: 10px; }
+    </style>
+</head>
+<body class="m-0 p-0">
+
+    <nav class="sticky-header p-6 px-8">
+        <div class="container mx-auto flex justify-between items-end">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight text-stone-800">Paris <span class="italic font-normal text-stone-500 underline decoration-stone-200 underline-offset-8">2026 Strategy</span></h1>
+                <p class="text-[10px] tracking-[0.2em] text-stone-400 uppercase mt-2 font-semibold">Jan 25 — Feb 01 • Gastronomy & Architecture</p>
+            </div>
+            <div class="text-right text-[11px] text-stone-400 italic">
+                “A moveble feast.” — Hemingway
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-10">
+        
+        <div class="lg:col-span-4 h-[82vh] overflow-y-auto pr-4">
+            <div class="sticky top-0 bg-[#F9F7F2] pb-4 z-10 border-b border-stone-200 mb-4">
+                <h2 class="text-xl font-bold text-stone-700">Daily Itinerary</h2>
+            </div>
+            <div id="planner" class="space-y-6">
+                </div>
+        </div>
+
+        <div class="lg:col-span-4">
+            <div class="sticky top-28 space-y-6">
+                <div id="map"></div>
+                <div class="bg-white p-5 rounded-2xl border border-[#EAE8E0] shadow-sm">
+                    <h3 class="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-3">Interactive Guide</h3>
+                    <p class="text-xs text-stone-500 leading-relaxed">
+                        點擊右側卡片標題可於地圖 <span class="text-stone-800 font-semibold underline decoration-gold">精確定位</span>。<br>
+                        景點標註為 <span class="text-amber-600 font-bold">暖金色</span>，餐廳標註為 <span class="text-emerald-700 font-bold">苔綠色</span>。
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-4 h-[82vh] overflow-y-auto pr-4 space-y-10">
+            <section>
+                <div class="sticky top-0 bg-[#F9F7F2] pb-4 z-10 border-b border-stone-200 mb-4 flex justify-between items-end">
+                    <h2 class="text-xl font-bold text-stone-700">Landmarks</h2>
+                    <span class="text-[10px] text-stone-400">景點庫</span>
+                </div>
+                <div id="landmark-pool" class="space-y-4"></div>
+            </section>
+            
+            <section>
+                <div class="sticky top-0 bg-[#F9F7F2] pb-4 z-10 border-b border-stone-200 mb-4 flex justify-between items-end">
+                    <h2 class="text-xl font-bold text-stone-700">Restaurants</h2>
+                    <span class="text-[10px] text-stone-400">美食推薦</span>
+                </div>
+                <div id="restaurant-pool" class="space-y-4"></div>
+            </section>
+        </div>
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // 景點數據補完
+        const landmarks = [
+            { id: 'l0', date: '1/26', name: "CDG 機場 (T2)", lat: 49.0034, lng: 2.5706, info: "RER B 線起點", desc: "抵達 CDG 後，搭乘 RER B 線至 Châtelet 轉 RER C 前往凡爾賽。" },
+            { id: 'l1', date: '1/26', name: "Versailles Chantiers", lat: 48.7958, lng: 2.1354, info: "RER C 快速轉乘點", desc: "前往凡爾賽宮的重要轉運車站。" },
+            { id: 'l2', date: '1/27', name: "凡爾賽宮", lat: 48.8049, lng: 2.1204, info: "Château de Versailles", desc: "參觀鏡廳、國王套房。結束後可在凡爾賽鎮買隔日乾糧。" },
+            { id: 'l2a', date: '1/27', name: "MEININGER Hotel", lat: 48.8475, lng: 2.4111, info: "住宿點 (Porte de Vincennes)", desc: "位於 12 區，靠近聖蒙德站，交通便利。" },
+            { id: 'l3', date: '1/28', name: "羅浮宮區域", lat: 48.8606, lng: 2.3376, info: "卡魯塞爾凱旋門 / Cour Carrée", desc: "包含海濱長廊與聖日耳曼奧塞爾教堂。附近有 La Galerie Véro-Dodat 長廊。" },
+            { id: 'l3a', date: '1/28', name: "巴黎聖母院", lat: 48.8530, lng: 2.3499, info: "Île de la Cité", desc: "參觀修復後的壯麗外觀。" },
+            { id: 'l4', date: '1/29', name: "路易威登藝術基金會", lat: 48.8766, lng: 2.2634, info: "Fondation Louis Vuitton", desc: "法蘭克蓋瑞設計的帆船建築。從聖蒙德搭 1 號線轉乘。" },
+            { id: 'l4a', date: '1/29', name: "凱旋門 / 海軍府", lat: 48.8738, lng: 2.2950, info: "Arc de Triomphe / Hôtel de la Marine", desc: "協和廣場旁的海軍府提供頂級中文導覽。" },
+            { id: 'l5', date: '1/30', name: "奧賽博物館 / 小皇宮", lat: 48.8599, lng: 2.3266, info: "Musée d'Orsay / Petit Palais", desc: "奧賽附近有兩家著名的 Vintage 海報店。小皇宮免費參觀。" },
+            { id: 'l6', date: '1/31', name: "聖徒禮拜堂 / 橘園", lat: 48.8547, lng: 2.3450, info: "Sainte-Chapelle / Orangerie", desc: "莫內睡蓮與極致彩繪玻璃。下午可去卡納瓦雷博物館（免費）。" },
+            { id: 'l7', date: '2/01', name: "聖心堂 / 蒙馬特", lat: 48.8867, lng: 2.3431, info: "Sacré-Cœur / 玫瑰之家", desc: "包含歌劇院、國家圖書館黎塞留館與薇薇安拱廊街。" },
+            { id: 's1', date: '1/28', name: "Lidl 超市 (Reuilly)", lat: 48.8468, lng: 2.3881, info: "補給站", desc: "晚上 20:00 前採買早餐與麵包搭配橄欖醬 (Tapenade)。" },
+            { id: 's2', date: '1/29', name: "Intermarché Express", lat: 48.8752, lng: 2.2975, info: "凱旋門附近超市", desc: "方便採買零食或簡單餐點。" }
+        ];
+
+        // 餐廳數據補完
+        const restaurants = [
+            { id: 'r1', date: '1/27', name: "Ceprano Pizza", lat: 48.8431, lng: 2.4223, price: "€20+", type: "義式窯烤", info: "聖蒙德站附近", dish: "松露披薩", rate: "4.6", book: false },
+            { id: 'r2', date: '1/28', name: "Le Relais du Louvre", lat: 48.8606, lng: 2.3411, price: "€45+", type: "傳統法餐", info: "羅浮宮旁三號", dish: "油封鴨腿", rate: "4.4", book: true },
+            { id: 'r3', date: '1/29', name: "Laduree 香榭店", lat: 48.8712, lng: 2.3015, price: "€35+", type: "法式沙龍", info: "距凱旋門 750m", dish: "聖多諾黑、馬卡龍", rate: "4.2", book: true },
+            { id: 'r4', date: '1/29', name: "Azur Café", lat: 48.8732, lng: 2.3005, price: "€20+", type: "全日早午餐", info: "文藝氛圍", dish: "精選拿鐵", rate: "4.5", book: false },
+            { id: 'r5', date: '1/30', name: "Café Varenne", lat: 48.8546, lng: 2.3218, price: "€25+", type: "經典 Bistro", info: "奧賽博物館區", dish: "韃靼牛肉", rate: "4.3", book: false },
+            { id: 'r6', date: '1/30', name: "The French Bastards", lat: 48.8552, lng: 2.3248, price: "€8+", type: "新派烘培", info: "Rue du Bac 分店", dish: "Cruffin", rate: "4.7", book: false },
+            { id: 'r7', date: '1/31', name: "Kozy Bosquet", lat: 48.8587, lng: 2.3018, price: "€25+", type: "熱門 Brunch", info: "鐵塔附近", dish: "班尼迪克蛋", rate: "4.8", book: true },
+            { id: 'r8', date: '1/31', name: "Carl Marletti", lat: 48.8395, lng: 2.3495, price: "€10+", type: "高級糕點", info: "甜點大師作品", dish: "檸檬塔", rate: "4.7", book: false },
+            { id: 'r9', date: '2/01', name: "Crêperie Brocéliande", lat: 48.8845, lng: 2.3415, price: "€18+", type: "道地可麗餅", info: "蒙馬特區", dish: "蕎麥鹹餅", rate: "4.9", book: true },
+            { id: 'r10', date: '2/01', name: "Maison Aleph", lat: 48.8576, lng: 2.3556, price: "€10+", type: "創新甜點", info: "黎凡特風格", dish: "開心果鳥巢塔", rate: "4.6", book: false }
+        ];
+
+        // 初始化地圖
+        const map = L.map('map', { zoomControl: false }).setView([48.8584, 2.3266], 12);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+
+        const markers = {};
+        function addMarker(item, isLandmark) {
+            const icon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color: ${isLandmark ? '#B89166' : '#4E6752'}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>`,
+                iconSize: [12, 12], iconAnchor: [6, 6]
+            });
+            markers[item.id] = L.marker([item.lat, item.lng], { icon: icon }).addTo(map).bindPopup(`<b style="font-family:serif">${item.name}</b><br><span style="font-size:10px">${item.info}</span>`);
+        }
+        landmarks.forEach(l => addMarker(l, true));
+        restaurants.forEach(r => addMarker(r, false));
+
+        // 渲染景點
+        function renderLandmarks() {
+            const pool = document.getElementById('landmark-pool');
+            landmarks.forEach(l => {
+                const card = document.createElement('div');
+                card.className = "item-card p-4";
+                card.draggable = true;
+                card.id = `drag-${l.id}-${Math.random().toString(36).substr(2, 5)}`;
+                card.ondragstart = (e) => e.dataTransfer.setData("text", e.target.id);
+                card.innerHTML = `
+                    <div class="delete-btn" onclick="this.parentElement.remove()">✕</div>
+                    <div class="tag-date">${l.date}</div>
+                    <details class="group">
+                        <summary onclick="map.flyTo([${l.lat}, ${l.lng}], 15)">
+                            <h3 class="font-bold text-stone-700 cursor-pointer hover:text-[#B89166] transition-colors">${l.name}</h3>
+                            <p class="text-[10px] text-stone-400 mt-1 italic tracking-wide">${l.info}</p>
+                        </summary>
+                        <div class="mt-3 text-[11px] leading-relaxed text-stone-500 border-t border-stone-50 pt-2 font-light">
+                            ${l.desc}
+                        </div>
+                    </details>
+                `;
+                pool.appendChild(card);
+            });
+        }
+
+        // 渲染餐廳
+        function renderRestaurants() {
+            const pool = document.getElementById('restaurant-pool');
+            restaurants.forEach(r => {
+                const card = document.createElement('div');
+                card.className = "item-card p-4";
+                card.draggable = true;
+                card.id = `drag-${r.id}-${Math.random().toString(36).substr(2, 5)}`;
+                card.ondragstart = (e) => e.dataTransfer.setData("text", e.target.id);
+                card.innerHTML = `
+                    <div class="delete-btn" onclick="this.parentElement.remove()">✕</div>
+                    <div class="flex justify-between items-start">
+                        <div class="tag-date">${r.date}</div>
+                        ${r.book ? '<span class="tag-book">Reserved</span>' : ''}
+                    </div>
+                    <details class="group">
+                        <summary onclick="map.flyTo([${r.lat}, ${r.lng}], 15)">
+                            <h3 class="font-bold text-stone-700 cursor-pointer hover:text-[#6B705C] transition-colors">${r.name}</h3>
+                            <div class="flex space-x-3 mt-1 text-[10px] text-stone-400 font-medium">
+                                <span>${r.type}</span>
+                                <span class="text-stone-300">|</span>
+                                <span class="text-[#B89166]">★ ${r.rate}</span>
+                                <span class="text-stone-300">|</span>
+                                <span>${r.price}</span>
+                            </div>
+                        </summary>
+                        <div class="mt-3 text-[11px] text-stone-500 space-y-1 font-light border-t border-stone-50 pt-2">
+                            <p><b>Context:</b> ${r.info}</p>
+                            <p class="text-stone-700 font-medium">Specialty: ${r.dish}</p>
+                        </div>
+                    </details>
+                `;
+                pool.appendChild(card);
+            });
+        }
+
+        // 渲染格位
+        function renderPlanner() {
+            const planner = document.getElementById('planner');
+            const dates = ["1/25 (日)", "1/26 (一)", "1/27 (二)", "1/28 (三)", "1/29 (四)", "1/30 (五)", "1/31 (六)", "2/01 (日)"];
+            dates.forEach(date => {
+                const dayBox = document.createElement('div');
+                dayBox.className = "bg-white/60 p-5 rounded-2xl border border-[#EAE8E0]";
+                dayBox.innerHTML = `<h3 class="text-sm font-bold text-stone-600 mb-4 border-b border-stone-100 pb-2">${date}</h3>`;
+                const meals = ["Morning", "Afternoon", "Evening"];
+                meals.forEach(meal => {
+                    if(date === "1/25 (日)" && meal !== "Evening") return; 
+                    const mZone = document.createElement('div');
+                    mZone.className = "mb-4 last:mb-0";
+                    mZone.innerHTML = `
+                        <p class="text-[9px] uppercase tracking-widest text-stone-300 mb-1 ml-1 font-semibold">${meal}</p>
+                        <div class="drag-zone in-planner p-1" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+                    `;
+                    dayBox.appendChild(mZone);
+                });
+                planner.appendChild(dayBox);
+            });
+        }
+
+        function allowDrop(e) { e.preventDefault(); }
+        function drop(e) {
+            e.preventDefault();
+            const id = e.dataTransfer.getData("text");
+            const original = document.getElementById(id);
+            if(!original) return;
+            const clone = original.cloneNode(true);
+            clone.id = "cloned-" + Math.random().toString(36).substr(2, 5);
+            clone.classList.add('in-planner', 'scale-[0.92]', 'm-0');
+            e.target.appendChild(clone);
+        }
+
+        renderLandmarks();
+        renderRestaurants();
+        renderPlanner();
+    </script>
+
+    <audio id="bgm" loop>
+        <source src="tout-a-change.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+    // 使用者第一次點擊畫面後播放（符合瀏覽器政策）
+    document.addEventListener('click', () => {
+        const bgm = document.getElementById('bgm');
+        bgm.volume = 0.25; // 很重要：背景音樂一定要小聲
+        bgm.play();
+    }, { once: true });
+    </script>
+
+</body>
+</html>
