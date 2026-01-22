@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>威尼斯 2026：權力與藝術之巔</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { background-color: #050505; color: #e2e8f0; }
+        #map { height: 500px; border-radius: 16px; border: 1px solid #334155; filter: invert(90%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid #334155; }
+        .accent-gold { color: #fbbf24; }
+        .btn-gold { background: #fbbf24; color: #0f172a; font-weight: bold; transition: all 0.3s; }
+        .btn-gold:hover { background: #f59e0b; transform: translateY(-2px); }
+        .tab-active { border-bottom: 3px solid #fbbf24; color: #fbbf24; }
+        details > summary { list-style: none; cursor: pointer; }
+        details > summary::-webkit-details-marker { display: none; }
+        input[type="number"] { background: #1e293b; border: 1px solid #334155; color: #fbbf24; padding: 2px 5px; width: 60px; border-radius: 4px; }
+    </style>
+</head>
+<body class="p-0 m-0">
+
+    <nav class="glass-panel sticky top-0 z-50 p-4 border-b border-slate-700">
+        <div class="container mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-black tracking-widest accent-gold uppercase">Venezia 2026</h1>
+                <p class="text-xs text-slate-400">Digital Command Center</p>
+            </div>
+            <div class="text-right">
+                <div class="text-sm text-slate-400 mb-1">全局訂票完成度</div>
+                <div class="w-48 bg-slate-800 rounded-full h-2.5">
+                    <div id="global-progress-bar" class="bg-yellow-500 h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+                <span id="progress-text" class="text-xs accent-gold">0%</span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto p-4 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <div class="lg:col-span-7 space-y-6">
+            <div class="flex space-x-8 border-b border-slate-700 mb-6">
+                <button onclick="switchDay(1)" id="btn-d1" class="pb-3 text-lg tab-active">2/4 形式與精神</button>
+                <button onclick="switchDay(2)" id="btn-d2" class="pb-3 text-lg">2/5 權力與秩序</button>
+                <button onclick="switchDay(3)" id="btn-d3" class="pb-3 text-lg text-slate-500">2/6 邊緣與消逝</button>
+            </div>
+
+            <div id="attractions-list" class="space-y-4">
+                </div>
+        </div>
+
+        <div class="lg:col-span-5 space-y-6">
+            <div class="glass-panel p-4 rounded-3xl shadow-2xl">
+                <h2 class="text-sm font-bold mb-3 accent-gold tracking-widest uppercase italic">Geospatial Overlay</h2>
+                <div id="map"></div>
+            </div>
+
+            <div class="glass-panel p-6 rounded-3xl shadow-2xl overflow-x-auto">
+                <h2 class="text-sm font-bold mb-4 accent-gold tracking-widest uppercase">Budget Intelligence</h2>
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="text-slate-500 border-b border-slate-700">
+                            <th class="py-2">景點項目</th>
+                            <th class="py-2">正常票</th>
+                            <th class="py-2">套票/優惠</th>
+                            <th class="py-2">學生票</th>
+                        </tr>
+                    </thead>
+                    <tbody id="price-body" class="text-slate-300">
+                        </tbody>
+                    <tfoot class="border-t border-slate-700 font-bold">
+                        <tr class="accent-gold">
+                            <td class="py-4">總計 (EUR)</td>
+                            <td id="total-normal">€0</td>
+                            <td id="total-combo">€0</td>
+                            <td id="total-student">€0</td>
+                        </tr>
+                    </tfoot>
+                </table>
+                <p class="text-[10px] text-slate-500 mt-4 italic">* 套票參考：Venezia Unica / 學生參考：Rolling Venice (29歲以下)</p>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const attractions = [
+            { day: 1, name: "學院橋拍攝位", lat: 45.4312, lng: 12.3283, prices: [0, 0, 0], link: "#", info: "這裡是威尼斯最具代表性的取景點。向東望去，安康聖母教堂的圓頂在晨光或夕陽下與大運河交織成完美的黃金比例。建議拍攝時間：08:00 前避開人群。" },
+            { day: 1, name: "學院美術館", lat: 45.4312, lng: 12.3283, prices: [15, 12, 12], link: "https://www.gallerieaccademia.it/", info: "威尼斯畫派的精華。收藏有喬爾喬內《暴風雨》、提香《聖母升天》以及達文西《維特魯威人》（不定期展出）。建議預約最早場次。" },
+            { day: 1, name: "古根漢博物館", lat: 45.4307, lng: 12.3315, prices: [17, 15, 10], link: "https://www.guggenheim-venice.it/", info: "佩姬·古根漢的故居。收藏畢卡索、達利、波洛克等大師作品。其花園與臨河露台是靜謐藝術享受的最佳場所。" },
+            { day: 1, name: "海關現代藝術館", lat: 45.4306, lng: 12.3361, prices: [15, 12, 10], link: "https://www.pinaultcollection.com/", info: "安藤忠雄改造的歷史建物。Pinault Collection 所在地，以現代藝術裝置與極簡建築結構著稱，海角的視野無敵。" },
+            { day: 1, name: "安康聖母教堂", lat: 45.4308, lng: 12.3346, prices: [5, 5, 5], link: "#", info: "威尼斯巴洛克建築巔峰。為紀念黑死病結束而建。內殿 Sacristy 收藏多幅提香名作。" },
+            { day: 1, name: "Zattere 水岸", lat: 45.4295, lng: 12.3275, prices: [0, 0, 0], link: "#", info: "威尼斯最適合漫步的南岸水岸。可以遙望 Giudecca 島。這裡是當地人曬太陽、吃冰淇淋的首選區域。" },
+            { day: 1, name: "大運河遊船 (1號線)", lat: 45.4411, lng: 12.3210, prices: [9.5, 7.5, 5], link: "#", info: "從羅馬廣場坐到聖馬可。這是一場慢速的建築巡禮。沿途會經過黃金宮、里亞托橋與無數貴族宮殿，建議傍晚點燈時分搭乘。" },
+            
+            { day: 2, name: "里亞托橋", lat: 45.4380, lng: 12.3359, prices: [0, 0, 0], link: "#", info: "威尼斯最古老且最著名的橋樑。石造結構支撐著繁華的商業歷史。雖然遊客眾多，但站在橋頭俯視大運河依然震撼。" },
+            { day: 2, name: "里亞托市場", lat: 45.4390, lng: 12.3347, prices: [0, 0, 0], link: "#", info: "體驗威尼斯生活的靈魂。魚市與蔬果市集充滿活力，建議清晨 07:30 抵達觀看貨船運送物資。" },
+            { day: 2, name: "聖馬可教堂", lat: 45.4345, lng: 12.3397, prices: [6, 6, 6], link: "https://basilicasanmarco.it/", info: "東方與西方藝術的結晶。天花板由超過 8,000 平方米的金箔馬賽克覆蓋。務必參觀 Loggia Dei Cavalli (露台) 看青銅馬原件。" },
+            { day: 2, name: "聖馬可鐘樓", lat: 45.4340, lng: 12.3385, prices: [10, 10, 10], link: "#", info: "威尼斯的最高點。搭乘電梯直達塔頂，可以俯瞰整個潟湖、聖馬可廣場以及遠處的阿爾卑斯山（天氣好時）。" },
+            { day: 2, name: "總督宮", lat: 45.4337, lng: 12.3404, prices: [30, 25, 15], link: "#", info: "威尼斯共和國權力的核心。包含豪華的會議廳、兵器庫，以及著名的嘆息橋內部連接的黑暗地牢。建議訂購秘密行程。" },
+            { day: 2, name: "蝸牛階梯", lat: 45.4348, lng: 12.3345, prices: [8, 7, 6], link: "#", info: "Contarini del Bovolo 宮的隱藏瑰寶。極致優雅的螺旋式外部階梯，融合文藝復興與哥德風格。" },
+            { day: 2, name: "Acqua Alta 書店", lat: 45.4370, lng: 12.3422, prices: [0, 0, 0], link: "#", info: "世界最美書店之一。為了應對水患，將書籍放在貢多拉與大浴缸中。後院有書本堆成的樓梯可登高觀賞運河。" },
+
+            { day: 3, name: "穆拉諾島 Murano", lat: 45.4550, lng: 12.3550, prices: [0, 0, 0], link: "#", info: "玻璃藝術之島。可以參觀玻璃工廠觀看大師手工吹製，並參觀 SS. Maria e Donato 教堂的精美地磚。" },
+            { day: 3, name: "布拉諾島 Burano", lat: 45.4854, lng: 12.4167, prices: [0, 0, 0], link: "#", info: "彩色島。以蕾絲工藝和五彩繽紛的漁民住宅聞名。這裡的色彩對比是攝影師的天堂。" },
+            { day: 3, name: "托爾切洛島 Torcello", lat: 45.4860, lng: 12.4170, prices: [5, 5, 5], link: "#", info: "威尼斯的起源地。島上僅剩少數居民。聖馬利亞升天教堂內的拜占庭馬賽克《末日審判》具有極高的藝術價值。" }
+        ];
+
+        /*let map = L.map('map').setView([45.434, 12.338], 13);
+        L.tileLayer('https://{s}.tile.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+        let markers = {};*/
+        let map = L.map('map').setView([45.434, 12.338], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        let markers = {};
+
+        function renderList(day) {
+            const list = document.getElementById('attractions-list');
+            list.innerHTML = '';
+            attractions.filter(a => a.day === day).forEach((attr, idx) => {
+                const div = document.createElement('div');
+                div.className = "glass-panel p-5 rounded-2xl hover:border-yellow-500/50 transition-all";
+                div.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1" onclick="focusMap(${attr.lat}, ${attr.lng}, '${attr.name}')">
+                            <div class="flex items-center space-x-2">
+                                <h3 class="font-bold text-xl accent-gold">${attr.name}</h3>
+                            </div>
+                            <details class="mt-3 group text-slate-400">
+                                <summary class="text-xs uppercase tracking-widest text-slate-500 group-open:mb-2">展開詳細情報 ↓</summary>
+                                <p class="text-sm leading-relaxed border-l-2 border-yellow-500/30 pl-4 py-2 bg-slate-800/50 rounded-r-lg">${attr.info}</p>
+                            </details>
+                        </div>
+                        <div class="flex flex-col items-end space-y-4">
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <span class="text-[15px] text-slate-500">已訂票</span>
+                                <input type="checkbox" id="chk-${attr.name}" onchange="updateGlobalProgress()" class="w-5 h-5 rounded border-slate-700 bg-slate-900 accent-yellow-500">
+                            </label>
+                            ${attr.link !== '#' ? `<a href="${attr.link}" target="_blank" class="text-[10px] btn-gold px-3 py-1 rounded-full uppercase">官網預約</a>` : ''}
+                        </div>
+                    </div>
+                `;
+                list.appendChild(div);
+                if(!markers[attr.name]) {
+                    markers[attr.name] = L.marker([attr.lat, attr.lng]).addTo(map).bindPopup(attr.name);
+                }
+            });
+            // 保持勾選狀態
+            attractions.forEach(a => {
+                const el = document.getElementById(`chk-${a.name}`);
+                if(el && localStorage.getItem(a.name) === 'true') el.checked = true;
+            });
+        }
+
+        function renderPrices() {
+            const body = document.getElementById('price-body');
+            body.innerHTML = '';
+            attractions.filter(a => a.prices[0] > 0).forEach((attr, i) => {
+                const row = document.createElement('tr');
+                row.className = "border-b border-slate-800 hover:bg-slate-800/30 transition";
+                row.innerHTML = `
+                    <td class="py-3">${attr.name}</td>
+                    <td>€<input type="number" value="${attr.prices[0]}" oninput="calcTotal()" class="p-normal"></td>
+                    <td>€<input type="number" value="${attr.prices[1]}" oninput="calcTotal()" class="p-combo"></td>
+                    <td>€<input type="number" value="${attr.prices[2]}" oninput="calcTotal()" class="p-student"></td>
+                `;
+                body.appendChild(row);
+            });
+            calcTotal();
+        }
+
+        function calcTotal() {
+            ['normal', 'combo', 'student'].forEach(type => {
+                let sum = 0;
+                document.querySelectorAll(`.p-${type}`).forEach(input => sum += parseFloat(input.value || 0));
+                document.getElementById(`total-${type}`).innerText = `€${sum.toFixed(2)}`;
+            });
+        }
+
+        function updateGlobalProgress() {
+            const allCheckboxes = attractions.length;
+            let checkedCount = 0;
+            attractions.forEach(a => {
+                const el = document.getElementById(`chk-${a.name}`);
+                if(el && el.checked) {
+                    checkedCount++;
+                    localStorage.setItem(a.name, 'true');
+                } else if(el) {
+                    localStorage.removeItem(a.name);
+                }
+            });
+            // 從 localStorage 讀取所有已存狀態（包含非當前顯示日期的）
+            let totalChecked = 0;
+            attractions.forEach(a => { if(localStorage.getItem(a.name) === 'true') totalChecked++; });
+            
+            const percent = Math.round((totalChecked / allCheckboxes) * 100);
+            document.getElementById('global-progress-bar').style.width = percent + '%';
+            document.getElementById('progress-text').innerText = percent + '%';
+        }
+
+        function focusMap(lat, lng, name) {
+            map.flyTo([lat, lng], 16);
+            markers[name].openPopup();
+        }
+
+        function switchDay(day) {
+            [1,2,3].forEach(d => document.getElementById(`btn-d${d}`).className = "pb-3 text-lg text-slate-500");
+            document.getElementById(`btn-d${day}`).className = "pb-3 text-lg tab-active";
+            renderList(day);
+        }
+
+        // 初始化
+        renderList(1);
+        renderPrices();
+        setTimeout(updateGlobalProgress, 500); // 延遲確保列表加載後計算
+    </script>
+</body>
+</html>
